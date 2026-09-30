@@ -28,6 +28,35 @@ class LabAgent:
         self.model = model
         self.llm = FakeLLM(model=model)
 
+    @observe(name="retrieval", as_type="retriever", capture_input=False, capture_output=False)
+    def _retrieve_docs(self, message: str) -> list[str]:
+        return retrieve(message)
+
+    @observe(name="generation", as_type="generation", capture_input=False, capture_output=False)
+    def _run_generation(self, prompt_text: str) -> FakeResponse:
+        response = self.llm.generate(prompt_text)
+        cost = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)
+        client = get_langfuse_client()
+        update_gen = getattr(client, "update_current_generation", None)
+        if callable(update_gen):
+            try:
+                update_gen(
+                    model=response.model,
+                    usage={
+                        "input": response.usage.input_tokens,
+                        "output": response.usage.output_tokens,
+                        "total": response.usage.input_tokens + response.usage.output_tokens,
+                        "unit": "TOKENS",
+                    },
+                    metadata={
+                        "ttft_ms": response.ttft_ms,
+                        "cost_usd": cost,
+                    },
+                )
+            except Exception:
+                pass
+        return response
+
     @observe(name="lab-agent-run", as_type="agent", capture_input=False, capture_output=False)
     def run(
         self,
@@ -51,7 +80,7 @@ class LabAgent:
             },
         ):
             started = time.perf_counter()
-            docs = retrieve(message)
+            docs = self._retrieve_docs(message)
             prompt = resolve_prompt(
                 langfuse_client,
                 feature=feature,
@@ -71,10 +100,8 @@ class LabAgent:
                 },
                 version=prompt.version,
             )
-            # TODO (CP2): instrument retrieve() and FakeLLM.generate() as child
-            # observations. The nested generation must receive prompt, usage and cost.
             with propagate_attributes(prompt=prompt.managed_prompt):
-                response = self.llm.generate(prompt.text)
+                response = self._run_generation(prompt.text)
             quality_score = self._heuristic_quality(message, response.text, docs)
             latency_ms = int((time.perf_counter() - started) * 1000)
             cost_usd = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)
