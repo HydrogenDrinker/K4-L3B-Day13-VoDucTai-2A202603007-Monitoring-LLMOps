@@ -8,7 +8,7 @@
 - **MSSV:** 2A202603007
 - **Lớp:** K4-L3B
 - **Repository URL:** https://github.com/HydrogenDrinker/K4-L3B-Day13-VoDucTai-2A202603007-Monitoring-LLMOps
-- **Commit SHA cuối:** 9cf04d42f7bca61ccb8ecd6b995c62f0aa188af7
+- **Commit SHA cuối:** b5dfeac587ed343d25f621fb702bf8e2059f714a
 - **Challenge ID:** day13-k4-l3b-monitoring-llmops-v1
 - **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202603007`
 
